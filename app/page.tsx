@@ -62,7 +62,7 @@ export default function Home() {
 
       // Check for valid hostname
       if (!parsed.hostname || parsed.hostname.length < 3) {
-        return { isValid: false, message: "Invalid domain name" }
+        return { isValid: false, message: "" }
       }
 
       // Check for valid TLD (must have at least one dot)
