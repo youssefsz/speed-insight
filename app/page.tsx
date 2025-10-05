@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
@@ -24,16 +24,39 @@ const fadeIn = {
   visible: { opacity: 1, y: 0 }
 }
 
+// Memoize the background to prevent re-renders on every keystroke
+const AnimatedBackground = memo(() => (
+  <div className="absolute inset-0 -z-10">
+    <Threads
+      color={[0.5, 0.3, 0.9]}
+      amplitude={1.2}
+      distance={0.15}
+      enableMouseInteraction={true}
+    />
+  </div>
+))
+AnimatedBackground.displayName = "AnimatedBackground"
+
+// Memoize the shine border to prevent re-renders
+const MemoizedShineBorder = memo(() => (
+  <ShineBorder shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]} />
+))
+MemoizedShineBorder.displayName = "MemoizedShineBorder"
+
+type ValidationState = {
+  status: "idle" | "valid" | "invalid"
+  message: string
+}
+
 export default function Home() {
   const [url, setUrl] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [validationState, setValidationState] = useState<"idle" | "valid" | "invalid">("idle")
-  const [validationMessage, setValidationMessage] = useState("")
+  const [validation, setValidation] = useState<ValidationState>({ status: "idle", message: "" })
   const router = useRouter()
   const debounceTimer = useRef<NodeJS.Timeout | null>(null)
 
-  // Professional URL validation
-  const validateUrl = (value: string): { isValid: boolean; message: string } => {
+  // Professional URL validation (memoized)
+  const validateUrl = useCallback((value: string): { isValid: boolean; message: string } => {
     if (!value.trim()) {
       return { isValid: false, message: "" }
     }
@@ -80,9 +103,9 @@ export default function Home() {
     } catch (error) {
       return { isValid: false, message: "Invalid URL format" }
     }
-  }
+  }, [])
 
-  const handleUrlChange = (value: string) => {
+  const handleUrlChange = useCallback((value: string) => {
     // Force lowercase conversion
     const lowercaseValue = value.toLowerCase()
     setUrl(lowercaseValue)
@@ -92,9 +115,8 @@ export default function Home() {
       clearTimeout(debounceTimer.current)
     }
 
-    // Reset to idle while typing
-    setValidationState("idle")
-    setValidationMessage("")
+    // Only reset validation state if not already idle (optimization)
+    setValidation(prev => prev.status !== "idle" ? { status: "idle", message: "" } : prev)
     
     if (!lowercaseValue.trim()) {
       return
@@ -102,16 +124,13 @@ export default function Home() {
 
     // Set debounced validation (500ms after user stops typing)
     debounceTimer.current = setTimeout(() => {
-      const validation = validateUrl(lowercaseValue)
-      if (validation.isValid) {
-        setValidationState("valid")
-        setValidationMessage(validation.message)
-      } else {
-        setValidationState("invalid")
-        setValidationMessage(validation.message)
-      }
+      const result = validateUrl(lowercaseValue)
+      setValidation({
+        status: result.isValid ? "valid" : "invalid",
+        message: result.message
+      })
     }, 500)
-  }
+  }, [validateUrl])
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -122,14 +141,16 @@ export default function Home() {
     }
   }, [])
 
-  const handleTest = async () => {
+  const handleTest = useCallback(async () => {
     if (!url) return
 
     // Validate before proceeding
-    const validation = validateUrl(url)
-    if (!validation.isValid) {
-      setValidationState("invalid")
-      setValidationMessage(validation.message)
+    const result = validateUrl(url)
+    if (!result.isValid) {
+      setValidation({
+        status: "invalid",
+        message: result.message
+      })
       return
     }
 
@@ -143,21 +164,14 @@ export default function Home() {
 
     // Navigate to insights page with URL as query parameter
     router.push(`/insights?url=${encodeURIComponent(correctedUrl)}`)
-  }
+  }, [url, validateUrl, router])
 
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {/* Animated Background */}
-        <div className="absolute inset-0 -z-10">
-          <Threads
-            color={[0.5, 0.3, 0.9]}
-            amplitude={1.2}
-            distance={0.15}
-            enableMouseInteraction={true}
-          />
-        </div>
+        <AnimatedBackground />
 
         <div className="container mx-auto px-6 pt-36 pb-16">
           <motion.div
@@ -200,7 +214,7 @@ export default function Home() {
             >
               <div className="space-y-3">
                 <div className="relative flex flex-col sm:flex-row gap-4 p-4 bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg rounded-2xl shadow-xl overflow-hidden border border-gray-200/50 dark:border-gray-700/50">
-                  <ShineBorder shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]} />
+                  <MemoizedShineBorder />
                   <div className="relative flex-1">
                     <Input
                       type="text"
@@ -209,17 +223,17 @@ export default function Home() {
                       onChange={(e) => handleUrlChange(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleTest()}
                       className={`h-12 text-base pr-10 bg-white dark:bg-gray-900 transition-all ${
-                        validationState === "valid" 
+                        validation.status === "valid" 
                           ? "border-green-500 hover:border-green-600 focus-visible:ring-1 focus-visible:ring-green-500/30 focus-visible:border-green-600" 
-                          : validationState === "invalid" 
+                          : validation.status === "invalid" 
                           ? "border-red-500 hover:border-red-600 focus-visible:ring-1 focus-visible:ring-red-500/30 focus-visible:border-red-600" 
                           : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 focus-visible:ring-1 focus-visible:ring-primary/20 focus-visible:border-primary"
                       }`}
                       disabled={isLoading}
                     />
-                    {validationState !== "idle" && (
+                    {validation.status !== "idle" && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        {validationState === "valid" ? (
+                        {validation.status === "valid" ? (
                           <CheckCircle2 className="w-5 h-5 text-green-500" />
                         ) : (
                           <AlertCircle className="w-5 h-5 text-red-500" />
@@ -229,9 +243,9 @@ export default function Home() {
                   </div>
                   <InteractiveHoverButton
                     onClick={handleTest}
-                    disabled={!url || isLoading || validationState !== "valid"}
+                    disabled={!url || isLoading || validation.status !== "valid"}
                     className={`h-12 px-8 ${
-                      !url || isLoading || validationState !== "valid"
+                      !url || isLoading || validation.status !== "valid"
                         ? "opacity-50 cursor-not-allowed"
                         : ""
                     }`}
@@ -241,7 +255,7 @@ export default function Home() {
                 </div>
                 
                 {/* Validation Message */}
-                {validationMessage && validationState === "invalid" && (
+                {validation.message && validation.status === "invalid" && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -249,7 +263,7 @@ export default function Home() {
                     className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-lg"
                   >
                     <AlertCircle size={16} />
-                    <span>{validationMessage}</span>
+                    <span>{validation.message}</span>
                   </motion.div>
                 )}
               </div>
