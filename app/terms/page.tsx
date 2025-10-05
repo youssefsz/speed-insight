@@ -3,8 +3,22 @@ import Link from "next/link"
 import { InteractiveHoverButtonBack } from "@/components/ui/interactive-hover-button-back"
 
 export const metadata: Metadata = {
-  title: "Terms of Service - SpeedInsight",
-  description: "Terms of Service for SpeedInsight",
+  title: "Terms of Service",
+  description: "SpeedInsight Terms of Service. Read our terms and conditions for using our website performance testing service. Understand your rights and responsibilities.",
+  keywords: ["terms of service", "terms and conditions", "user agreement", "legal terms", "service terms"],
+  openGraph: {
+    title: "Terms of Service - SpeedInsight",
+    description: "SpeedInsight Terms of Service and conditions for using our website performance testing service.",
+    url: "https://speed-insight.youssef.tn/terms",
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  alternates: {
+    canonical: "https://speed-insight.youssef.tn/terms",
+  },
 }
 
 export default function TermsPage() {

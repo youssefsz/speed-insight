@@ -3,8 +3,22 @@ import Link from "next/link"
 import { InteractiveHoverButtonBack } from "@/components/ui/interactive-hover-button-back"
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - SpeedInsight",
-  description: "Privacy Policy for SpeedInsight - Learn how we handle your data",
+  title: "Privacy Policy",
+  description: "SpeedInsight Privacy Policy. Learn how we collect, use, and protect your data when using our website performance testing service. GDPR and CCPA compliant.",
+  keywords: ["privacy policy", "data protection", "GDPR", "CCPA", "privacy", "data handling"],
+  openGraph: {
+    title: "Privacy Policy - SpeedInsight",
+    description: "Learn how we collect, use, and protect your data when using SpeedInsight.",
+    url: "https://speed-insight.youssef.tn/privacy-policy",
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  alternates: {
+    canonical: "https://speed-insight.youssef.tn/privacy-policy",
+  },
 }
 
 export default function PrivacyPolicyPage() {
