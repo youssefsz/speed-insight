@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
-import dynamic from "next/dynamic"
 import { CheckCircle2, AlertCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { SparklesText } from "@/components/ui/sparkles-text"
@@ -17,31 +16,10 @@ const caveat = Caveat({
   variable: "--font-caveat"
 })
 
-const Threads = dynamic(() => import("@/components/Threads"), { ssr: false })
-
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 }
 }
-
-// Memoize the background to prevent re-renders on every keystroke
-const AnimatedBackground = memo(() => (
-  <div className="absolute inset-0 -z-10">
-    <Threads
-      color={[0.5, 0.3, 0.9]}
-      amplitude={1.2}
-      distance={0.15}
-      enableMouseInteraction={true}
-    />
-  </div>
-))
-AnimatedBackground.displayName = "AnimatedBackground"
-
-// Memoize the shine border to prevent re-renders
-const MemoizedShineBorder = memo(() => (
-  <ShineBorder shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]} />
-))
-MemoizedShineBorder.displayName = "MemoizedShineBorder"
 
 type ValidationState = {
   status: "idle" | "valid" | "invalid"
@@ -170,9 +148,6 @@ export default function Home() {
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Animated Background */}
-        <AnimatedBackground />
-
         <div className="container mx-auto px-6 pt-36 pb-16">
           <motion.div
             initial="hidden"
@@ -214,7 +189,7 @@ export default function Home() {
             >
               <div className="space-y-3">
                 <div className="relative flex flex-col sm:flex-row gap-4 p-4 bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg rounded-2xl shadow-xl overflow-hidden border border-gray-200/50 dark:border-gray-700/50">
-                  <MemoizedShineBorder />
+                  <ShineBorder shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]} />
                   <div className="relative flex-1">
                     <Input
                       type="text"
