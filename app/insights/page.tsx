@@ -974,42 +974,58 @@ function InsightsContent() {
 
             <div className="mt-6">
               <TabsContent value="desktop" className="mt-0">
-                <AnimatePresence mode="wait">
-                  {activeTab === "desktop" && (
-                    <motion.div
-                      key="desktop-results"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {desktopLoading && !desktopData ? (
-                        <LoadingProgress type="desktop" />
-                      ) : (
-                        renderResults(desktopData)
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {desktopLoading && !desktopData ? (
+                  <motion.div
+                    key="desktop-loading"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <LoadingProgress key="desktop-progress" type="desktop" />
+                  </motion.div>
+                ) : (
+                  <AnimatePresence mode="wait">
+                    {activeTab === "desktop" && (
+                      <motion.div
+                        key="desktop-results"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {renderResults(desktopData)}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                )}
               </TabsContent>
               <TabsContent value="mobile" className="mt-0">
-                <AnimatePresence mode="wait">
-                  {activeTab === "mobile" && (
-                    <motion.div
-                      key="mobile-results"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {mobileLoading && !mobileData ? (
-                        <LoadingProgress type="mobile" />
-                      ) : (
-                        renderResults(mobileData)
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {mobileLoading && !mobileData ? (
+                  <motion.div
+                    key="mobile-loading"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <LoadingProgress key="mobile-progress" type="mobile" />
+                  </motion.div>
+                ) : (
+                  <AnimatePresence mode="wait">
+                    {activeTab === "mobile" && (
+                      <motion.div
+                        key="mobile-results"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {renderResults(mobileData)}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                )}
               </TabsContent>
             </div>
           </Tabs>
