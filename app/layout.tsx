@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   },
   description: "Test your website performance with Google PageSpeed Insights API. Get detailed insights into Core Web Vitals, performance scores, and optimization recommendations.",
   keywords: ["website performance", "pagespeed insights", "core web vitals", "website speed test", "performance optimization", "LCP", "FID", "CLS", "performance testing", "speed test", "web vitals", "lighthouse", "google pagespeed"],
-  authors: [{ name: "SpeedInsight", url: "https://speed-insight.youssef.tnn" }],
+  authors: [{ name: "SpeedInsight", url: "https://speed-insight.youssef.tn" }],
   creator: "SpeedInsight",
   publisher: "SpeedInsight",
   category: "technology",
@@ -90,7 +90,9 @@ export const metadata: Metadata = {
   },
   verification: {
     google: "your-google-verification-code",
-    // Add other verification codes as needed
+    other: {
+      'msvalidate.01': 'your-bing-verification-code', // Add your Bing verification code here
+    },
   },
 };
 
