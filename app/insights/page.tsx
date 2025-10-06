@@ -14,6 +14,7 @@ import { PerformanceCircle } from "@/components/performance-circle"
 import { CoreWebVitalsAssessment } from "@/components/core-web-vitals-assessment"
 import { DownloadMenu } from "@/components/download-menu"
 import { InteractiveHoverButtonBack } from "@/components/ui/interactive-hover-button-back"
+import { LoadingProgress } from "@/components/loading-progress"
 import Link from "next/link"
 
 // CountUp Number Component
@@ -122,7 +123,8 @@ function InsightsContent() {
 
   const [mobileData, setMobileData] = useState<PageSpeedData | null>(null)
   const [desktopData, setDesktopData] = useState<PageSpeedData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [mobileLoading, setMobileLoading] = useState(true)
+  const [desktopLoading, setDesktopLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("desktop")
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -203,32 +205,29 @@ function InsightsContent() {
     }
   }
 
-  const fetchData = async (forceRefresh = false) => {
+  const fetchDesktopData = async (forceRefresh = false) => {
     if (!url) return
     
     if (forceRefresh) {
       setIsRefreshing(true)
-    } else {
-      setLoading(true)
     }
+    setDesktopLoading(true)
     setError(null)
 
     try {
       const refreshParam = forceRefresh ? '&refresh=true' : ''
       const testUrl = url // Assign to const to satisfy TypeScript
       
-      // Fetch mobile and desktop data in parallel (no timeouts)
-      const [mobileResponse, desktopResponse] = await Promise.all([
-        fetch(`/api/pagespeed?url=${encodeURIComponent(testUrl)}&strategy=mobile${refreshParam}`),
-        fetch(`/api/pagespeed?url=${encodeURIComponent(testUrl)}&strategy=desktop${refreshParam}`)
-      ])
+      // Fetch desktop data first
+      const desktopResponse = await fetch(
+        `/api/pagespeed?url=${encodeURIComponent(testUrl)}&strategy=desktop${refreshParam}`
+      )
 
-      if (!mobileResponse.ok || !desktopResponse.ok) {
-        const errorResponse = mobileResponse.ok ? desktopResponse : mobileResponse
-        const errorData = await errorResponse.json()
+      if (!desktopResponse.ok) {
+        const errorData = await desktopResponse.json()
         
         // Create user-friendly error message with suggestion
-        let errorMessage = errorData.error || "Failed to fetch performance data"
+        let errorMessage = errorData.error || "Failed to fetch desktop performance data"
         if (errorData.suggestion) {
           errorMessage += ` ${errorData.suggestion}`
         }
@@ -236,17 +235,67 @@ function InsightsContent() {
         throw new Error(errorMessage)
       }
 
-        const mobileJson = await mobileResponse.json()
-        const desktopJson = await desktopResponse.json()
-
-      setMobileData(mobileJson)
+      const desktopJson = await desktopResponse.json()
       setDesktopData(desktopJson)
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
-      setLoading(false)
+      setDesktopLoading(false)
       setIsRefreshing(false)
     }
+  }
+
+  const fetchMobileData = async (forceRefresh = false) => {
+    if (!url) return
+    
+    setMobileLoading(true)
+
+    try {
+      const refreshParam = forceRefresh ? '&refresh=true' : ''
+      const testUrl = url // Assign to const to satisfy TypeScript
+      
+      // Fetch mobile data separately
+      const mobileResponse = await fetch(
+        `/api/pagespeed?url=${encodeURIComponent(testUrl)}&strategy=mobile${refreshParam}`
+      )
+
+      if (!mobileResponse.ok) {
+        const errorData = await mobileResponse.json()
+        
+        // Create user-friendly error message with suggestion
+        let errorMessage = errorData.error || "Failed to fetch mobile performance data"
+        if (errorData.suggestion) {
+          errorMessage += ` ${errorData.suggestion}`
+        }
+        
+        throw new Error(errorMessage)
+      }
+
+      const mobileJson = await mobileResponse.json()
+      setMobileData(mobileJson)
+    } catch (err) {
+      // Only set error if desktop also failed (has error)
+      // Otherwise, user can still view desktop data
+      if (!desktopData) {
+        setError(err instanceof Error ? err.message : "An error occurred")
+      }
+    } finally {
+      setMobileLoading(false)
+    }
+  }
+
+  const fetchData = async (forceRefresh = false) => {
+    // Reset data if force refreshing
+    if (forceRefresh) {
+      setMobileData(null)
+      setDesktopData(null)
+    }
+
+    // Fetch desktop first
+    await fetchDesktopData(forceRefresh)
+    
+    // Then fetch mobile in the background
+    fetchMobileData(forceRefresh)
   }
 
   useEffect(() => {
@@ -822,7 +871,7 @@ function InsightsContent() {
               </InteractiveHoverButtonBack>
             </Link>
             
-            {!loading && (mobileData || desktopData) && (
+            {(mobileData || desktopData) && (
               <div className="flex items-center gap-2">
                 <DownloadMenu 
                   data={activeTab === 'desktop' ? desktopData : mobileData}
@@ -835,7 +884,7 @@ function InsightsContent() {
                   variant="outline" 
                   size="sm"
                   onClick={() => fetchData(true)}
-                  disabled={isRefreshing}
+                  disabled={isRefreshing || (desktopLoading && mobileLoading)}
                   className="gap-2 cursor-pointer"
                 >
                   <motion.svg 
@@ -870,230 +919,6 @@ function InsightsContent() {
           </div>
         </motion.div>
 
-        {/* Loading State */}
-        {(loading || isRefreshing) && (
-          <motion.div 
-            className="space-y-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          >
-            {/* Top Category Scores Skeleton */}
-            <motion.div 
-              className="grid grid-cols-2 md:grid-cols-4 gap-4"
-              variants={staggerContainer}
-              initial="hidden"
-              animate="visible"
-            >
-              {[1, 2, 3, 4].map((i) => (
-                <motion.div 
-                  key={i} 
-                  variants={item}
-                  className="flex flex-col items-center gap-2 p-4 border rounded-lg bg-card"
-                >
-                  <Skeleton className="w-16 h-16 rounded-full" />
-                  <Skeleton className="h-3 w-20" />
-                </motion.div>
-              ))}
-            </motion.div>
-
-            {/* Performance Circle and Screenshot Skeleton */}
-            <div className="grid lg:grid-cols-2 gap-8">
-              {/* Performance Circle Skeleton */}
-              <motion.div 
-                className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 border rounded-lg bg-card"
-                variants={fadeInLeft}
-                initial="hidden"
-                animate="visible"
-              >
-                <Skeleton className="w-[250px] h-[250px] sm:w-[280px] sm:h-[280px] md:w-[300px] md:h-[300px] rounded-full" />
-                <Skeleton className="h-6 sm:h-8 w-24 sm:w-32 mt-4 sm:mt-6" />
-                <Skeleton className="h-3 sm:h-4 w-40 sm:w-48 mt-2" />
-              </motion.div>
-
-              {/* Screenshot Skeleton */}
-              <motion.div 
-                className="border rounded-lg overflow-hidden bg-card"
-                variants={fadeInRight}
-                initial="hidden"
-                animate="visible"
-              >
-                <div className="p-3 sm:p-4 border-b space-y-2">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-48" />
-                </div>
-                <div className="p-4 sm:p-6 bg-muted/20 flex justify-center items-center min-h-[300px] sm:min-h-[400px]">
-                  <Skeleton className="w-full max-w-[250px] sm:max-w-[300px] h-[300px] sm:h-[400px] rounded-lg" />
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Metrics Skeleton */}
-            <motion.div 
-              className="border rounded-lg bg-card p-6"
-              variants={fadeInUp}
-              initial="hidden"
-              animate="visible"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-              <motion.div 
-                className="grid md:grid-cols-2 gap-x-12 gap-y-6"
-                variants={staggerContainer}
-                initial="hidden"
-                animate="visible"
-              >
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <motion.div 
-                    key={i} 
-                    variants={item}
-                    className="space-y-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="w-2 h-2 rounded-full" />
-                      <Skeleton className="h-4 w-40" />
-                    </div>
-                    <Skeleton className="h-8 w-24" />
-                  </motion.div>
-                ))}
-              </motion.div>
-            </motion.div>
-
-            {/* Real-World Assessment Skeleton */}
-            <motion.div 
-              className="border rounded-lg bg-card overflow-hidden"
-              variants={fadeInUp}
-              initial="hidden"
-              animate="visible"
-            >
-              {/* Header */}
-              <div className="p-4 sm:p-5 border-b flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-1">
-                  <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
-                  <div className="space-y-1 flex-1">
-                    <Skeleton className="h-4 w-full max-w-[300px]" />
-                    <Skeleton className="h-3 w-full max-w-[400px] hidden sm:block" />
-                  </div>
-                </div>
-                <Skeleton className="h-4 w-20 flex-shrink-0" />
-              </div>
-              
-              {/* Core Metrics - 2 per row */}
-              <div className="p-4 sm:p-5">
-                <div className="grid lg:grid-cols-2 gap-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="space-y-3 p-4 sm:p-5 border rounded-lg">
-                      {/* Header */}
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Skeleton className="w-5 h-5 rounded-full flex-shrink-0" />
-                            <Skeleton className="h-4 w-full max-w-[200px]" />
-                          </div>
-                          <Skeleton className="h-3 w-full" />
-                        </div>
-                        <div className="space-y-1 flex-shrink-0">
-                          <Skeleton className="h-8 w-16" />
-                          <Skeleton className="h-3 w-16" />
-                        </div>
-                      </div>
-                      
-                      {/* Progress bar */}
-                      <div className="space-y-2.5">
-                        <Skeleton className="h-2 w-full rounded-full" />
-                        <Skeleton className="h-8 w-full" />
-                        
-                        {/* Distribution labels */}
-                        <div className="grid grid-cols-3 gap-2">
-                          {[1, 2, 3].map((j) => (
-                            <div key={j} className="flex flex-col gap-1 p-2 rounded bg-muted/30">
-                              <Skeleton className="h-3 w-12" />
-                              <Skeleton className="h-3 w-full" />
-                              <Skeleton className="h-4 w-10" />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Footer */}
-              <div className="p-3 sm:p-4 bg-muted/30 border-t">
-                <div className="flex gap-2">
-                  <Skeleton className="w-4 h-4 rounded-full flex-shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-3 w-full" />
-                    <Skeleton className="h-3 w-4/5 hidden sm:block" />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Opportunities Skeleton */}
-            <motion.div
-              variants={fadeInUp}
-              initial="hidden"
-              animate="visible"
-            >
-              <Skeleton className="h-4 w-32 mb-4" />
-              <motion.div 
-                className="space-y-2"
-                variants={staggerContainer}
-                initial="hidden"
-                animate="visible"
-              >
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <motion.div 
-                    key={i} 
-                    variants={item}
-                    className="p-4 border rounded-lg"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-full" />
-                      </div>
-                      <Skeleton className="h-5 w-20" />
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </motion.div>
-
-            {/* Diagnostics Skeleton */}
-            <motion.div
-              variants={fadeInUp}
-              initial="hidden"
-              animate="visible"
-            >
-              <Skeleton className="h-4 w-28 mb-4" />
-              <motion.div 
-                className="space-y-2"
-                variants={staggerContainer}
-                initial="hidden"
-                animate="visible"
-              >
-                {[1, 2, 3].map((i) => (
-                  <motion.div 
-                    key={i} 
-                    variants={item}
-                    className="p-3 border rounded-lg flex items-center gap-3"
-                  >
-                    <Skeleton className="w-5 h-5 rounded-full" />
-                    <Skeleton className="h-4 flex-1" />
-                    <Skeleton className="h-3 w-16" />
-                  </motion.div>
-                ))}
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        )}
-
         {/* Error State */}
         {error && (
           <motion.div
@@ -1115,8 +940,8 @@ function InsightsContent() {
           </motion.div>
         )}
 
-        {/* Results */}
-        {!loading && !isRefreshing && !error && (mobileData || desktopData) && (
+        {/* Results - Always show tabs immediately */}
+        {!error && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1157,7 +982,11 @@ function InsightsContent() {
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
                     >
-                      {renderResults(desktopData)}
+                      {desktopLoading && !desktopData ? (
+                        <LoadingProgress type="desktop" />
+                      ) : (
+                        renderResults(desktopData)
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -1172,7 +1001,11 @@ function InsightsContent() {
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
                     >
-                      {renderResults(mobileData)}
+                      {mobileLoading && !mobileData ? (
+                        <LoadingProgress type="mobile" />
+                      ) : (
+                        renderResults(mobileData)
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
