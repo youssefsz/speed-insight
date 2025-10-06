@@ -1,7 +1,59 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+
+// CountUp Number Component
+interface CountUpNumberProps {
+  target: number
+  duration?: number
+  delay?: number
+}
+
+function CountUpNumber({ target, duration = 1.5, delay = 0 }: CountUpNumberProps) {
+  const [count, setCount] = useState(0)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, delay * 1000)
+
+    return () => clearTimeout(timer)
+  }, [delay])
+
+  useEffect(() => {
+    if (!isVisible) return
+
+    let startTime: number
+    let animationFrame: number
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const progress = Math.min((timestamp - startTime) / (duration * 1000), 1)
+      
+      // Easing function for smooth animation
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4)
+      const currentCount = Math.floor(easeOutQuart * target)
+      
+      setCount(currentCount)
+      
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate)
+      }
+    }
+
+    animationFrame = requestAnimationFrame(animate)
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame)
+      }
+    }
+  }, [target, duration, isVisible])
+
+  return <span>{count}</span>
+}
 
 interface Metric {
   key: string
@@ -21,8 +73,18 @@ interface PerformanceCircleProps {
 export function PerformanceCircle({ score, metrics, formatValue }: PerformanceCircleProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [hoveredSegment, setHoveredSegment] = useState<number | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
 
   const scorePercent = Math.round(score * 100)
+
+  // Trigger visibility when component mounts
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, 200) // Reduced delay for faster start
+
+    return () => clearTimeout(timer)
+  }, [])
   
   const getScoreColor = (s: number) => {
     if (s >= 0.9) return "#10b981" // green-500 - matches segments
@@ -112,46 +174,51 @@ export function PerformanceCircle({ score, metrics, formatValue }: PerformanceCi
             className="transition-all duration-300"
           />
 
+          {/* Background circle */}
+          <motion.circle
+            cx="150"
+            cy="150"
+            r="85"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="10"
+            className="text-muted"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: isHovered ? 0 : 1 }}
+            transition={{ duration: 0.3 }}
+          />
+          
           {/* Main progress circle - only visible when NOT hovered */}
-          <AnimatePresence>
-            {!isHovered && (
-              <>
-                {/* Background circle */}
-                <motion.circle
-                  cx="150"
-                  cy="150"
-                  r="85"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="10"
-                  className="text-muted"
-                  initial={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                />
-                
-                {/* Progress circle */}
-                <motion.circle
-                  cx="150"
-                  cy="150"
-                  r="85"
-                  fill="none"
-                  stroke={getScoreColor(score)}
-                  strokeWidth="10"
-                  strokeDasharray={`${2 * Math.PI * 85}`}
-                  strokeDashoffset={`${2 * Math.PI * 85 * (1 - score)}`}
-                  strokeLinecap="round"
-                  style={{ 
-                    transform: "rotate(-90deg)", 
-                    transformOrigin: "150px 150px" 
-                  }}
-                  initial={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                />
-              </>
-            )}
-          </AnimatePresence>
+          <motion.circle
+            cx="150"
+            cy="150"
+            r="85"
+            fill="none"
+            stroke={getScoreColor(score)}
+            strokeWidth="10"
+            strokeDasharray={`${2 * Math.PI * 85}`}
+            strokeLinecap="round"
+            style={{ 
+              transform: "rotate(-90deg)", 
+              transformOrigin: "150px 150px" 
+            }}
+            initial={{ 
+              opacity: 1, 
+              strokeDashoffset: 534.07 // 2 * Math.PI * 85 = full circle
+            }}
+            animate={{ 
+              opacity: isHovered ? 0 : 1,
+              strokeDashoffset: 534.07 * (1 - score) // Animate to target percentage
+            }}
+            transition={{ 
+              strokeDashoffset: { 
+                duration: 2, 
+                delay: 0.3, 
+                ease: "easeOut" 
+              },
+              opacity: { duration: 0.3 }
+            }}
+          />
 
           {/* Segments - only visible on hover */}
           <AnimatePresence>
@@ -197,10 +264,15 @@ export function PerformanceCircle({ score, metrics, formatValue }: PerformanceCi
                           filter: isActive ? "url(#glow)" : "none",
                           opacity: hoveredSegment === null ? 1 : isActive ? 1 : 0.4
                         }}
-                        animate={{
+                        initial={{ pathLength: 0 }}
+                        animate={{ 
+                          pathLength: 1,
                           strokeWidth: isActive ? 14 : 10
                         }}
-                        transition={{ duration: 0.2 }}
+                        transition={{
+                          pathLength: { duration: 1.5, delay: 0.5 + index * 0.1, ease: "easeOut" },
+                          strokeWidth: { duration: 0.2 }
+                        }}
                       />
 
                       {/* Invisible wider path for better hover detection */}
@@ -269,20 +341,35 @@ export function PerformanceCircle({ score, metrics, formatValue }: PerformanceCi
           </AnimatePresence>
 
           {/* Center score text - matches progress bar color */}
-          <text
-            x="150"
-            y="150"
-            textAnchor="middle"
-            dominantBaseline="middle"
-            className="font-bold transition-all duration-300"
-            fill={getScoreColor(score)}
-            style={{ 
-              fontSize: isHovered ? "52px" : "64px",
-              filter: "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))"
+          <motion.foreignObject
+            x="100"
+            y="115"
+            width="100"
+            height="70"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ 
+              delay: 0.6, 
+              duration: 0.4, 
+              type: "spring", 
+              stiffness: 200 
             }}
           >
-            {scorePercent}
-          </text>
+            <div 
+              className="font-bold transition-all duration-300 flex items-center justify-center w-full h-full"
+              style={{ 
+                fontSize: isHovered ? "52px" : "64px",
+                color: getScoreColor(score),
+                filter: "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))"
+              }}
+            >
+              {isVisible ? (
+                <CountUpNumber target={scorePercent} duration={1.2} delay={0.8} />
+              ) : (
+                "0"
+              )}
+            </div>
+          </motion.foreignObject>
         </svg>
 
         {/* Detailed tooltip */}

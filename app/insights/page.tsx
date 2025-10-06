@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useEffect, useState, Suspense, useMemo } from "react"
+import React, { useEffect, useState, Suspense, useMemo, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, useInView, useScroll, useTransform, useMotionValue, useSpring } from "framer-motion"
 import { Smartphone, Monitor, TrendingUp, TrendingDown, Minus, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,6 +15,58 @@ import { CoreWebVitalsAssessment } from "@/components/core-web-vitals-assessment
 import { DownloadMenu } from "@/components/download-menu"
 import { InteractiveHoverButtonBack } from "@/components/ui/interactive-hover-button-back"
 import Link from "next/link"
+
+// CountUp Number Component
+interface CountUpNumberProps {
+  target: number
+  duration?: number
+  delay?: number
+}
+
+function CountUpNumber({ target, duration = 1.5, delay = 0 }: CountUpNumberProps) {
+  const [count, setCount] = useState(0)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, delay * 1000)
+
+    return () => clearTimeout(timer)
+  }, [delay])
+
+  useEffect(() => {
+    if (!isVisible) return
+
+    let startTime: number
+    let animationFrame: number
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const progress = Math.min((timestamp - startTime) / (duration * 1000), 1)
+      
+      // Easing function for smooth animation
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4)
+      const currentCount = Math.floor(easeOutQuart * target)
+      
+      setCount(currentCount)
+      
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate)
+      }
+    }
+
+    animationFrame = requestAnimationFrame(animate)
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame)
+      }
+    }
+  }, [target, duration, isVisible])
+
+  return <span>{count}</span>
+}
 
 interface PageSpeedData {
   lighthouseResult?: {
@@ -75,6 +127,81 @@ function InsightsContent() {
   const [activeTab, setActiveTab] = useState("desktop")
   const [isMetricsExpanded, setIsMetricsExpanded] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Refs for scroll animations
+  const headerRef = useRef(null)
+  const metricsRef = useRef(null)
+  const opportunitiesRef = useRef(null)
+  const diagnosticsRef = useRef(null)
+  const cwvRef = useRef(null)
+
+  // Animation variants
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 60 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        duration: 0.8,
+        staggerChildren: 0.1
+      }
+    }
+  }
+
+  const fadeInLeft = {
+    hidden: { opacity: 0, x: -60 },
+    visible: { 
+      opacity: 1, 
+      x: 0,
+      transition: {
+        duration: 0.8
+      }
+    }
+  }
+
+  const fadeInRight = {
+    hidden: { opacity: 0, x: 60 },
+    visible: { 
+      opacity: 1, 
+      x: 0,
+      transition: {
+        duration: 0.8
+      }
+    }
+  }
+
+  const scaleIn = {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: { 
+      opacity: 1, 
+      scale: 1,
+      transition: {
+        duration: 0.6
+      }
+    }
+  }
+
+  const staggerContainer = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15,
+        delayChildren: 0.1
+      }
+    }
+  }
+
+  const item = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        duration: 0.6
+      }
+    }
+  }
 
   const fetchData = async (forceRefresh = false) => {
     if (!url) return
@@ -253,73 +380,131 @@ function InsightsContent() {
 
     return (
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
         className="space-y-8"
       >
         {/* Top Category Scores */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <motion.div 
+          ref={headerRef}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={staggerContainer}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        >
           {[
             { label: "Performance", score: performanceScore, icon: "⚡" },
             { label: "Accessibility", score: 0.96, icon: "♿" },
             { label: "Best Practices", score: 1.0, icon: "✓" },
             { label: "SEO", score: 1.0, icon: "🔍" }
-          ].map((category) => {
+          ].map((category, index) => {
             const percent = Math.round(category.score * 100)
             const color = category.score >= 0.9 ? "text-green-600 dark:text-green-400" : category.score >= 0.5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"
+            const strokeColor = category.score >= 0.9 ? "#16a34a" : category.score >= 0.5 ? "#ca8a04" : "#dc2626"
             
             return (
-              <div key={category.label} className="flex flex-col items-center gap-2 p-4 border rounded-lg bg-card">
-                <div className="relative w-16 h-16 flex items-center justify-center">
-                  <svg className="absolute inset-0 w-16 h-16 transform -rotate-90">
+              <motion.div 
+                key={category.label} 
+                variants={scaleIn}
+                className="flex flex-col items-center gap-3 p-6 border rounded-lg bg-card hover:shadow-lg transition-shadow duration-300"
+              >
+                <div className="relative w-20 h-20 flex items-center justify-center">
+                  {/* Background Circle */}
+                  <svg 
+                    className="absolute inset-0 w-20 h-20 transform -rotate-90"
+                    viewBox="0 0 40 40"
+                  >
                     <circle
-                      cx="32"
-                      cy="32"
-                      r="28"
+                      cx="20"
+                      cy="20"
+                      r="16"
                       stroke="currentColor"
-                      strokeWidth="4"
+                      strokeWidth="3"
                       fill="none"
-                      className="text-muted"
-                    />
-                    <circle
-                      cx="32"
-                      cy="32"
-                      r="28"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      fill="none"
-                      strokeDasharray={`${2 * Math.PI * 28}`}
-                      strokeDashoffset={`${2 * Math.PI * 28 * (1 - category.score)}`}
-                      className={color}
-                      strokeLinecap="round"
+                      className="text-muted/30"
                     />
                   </svg>
-                  <span className={`text-sm font-bold ${color} relative z-10`}>
-                    {percent}
-                  </span>
+                  
+                  {/* Progress Circle */}
+                  <motion.svg 
+                    className="absolute inset-0 w-20 h-20 transform -rotate-90"
+                    viewBox="0 0 40 40"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3 + index * 0.1, duration: 0.5 }}
+                  >
+                    <motion.circle
+                      cx="20"
+                      cy="20"
+                      r="16"
+                      stroke={strokeColor}
+                      strokeWidth="3"
+                      fill="none"
+                      strokeDasharray="100.53"
+                      strokeDashoffset="100.53"
+                      strokeLinecap="round"
+                      initial={{ strokeDashoffset: 100.53 }}
+                      animate={{ 
+                        strokeDashoffset: 100.53 - (category.score * 100.53)
+                      }}
+                      transition={{ 
+                        delay: 0.5 + index * 0.1, 
+                        duration: 2, 
+                        ease: "easeOut" 
+                      }}
+                    />
+                  </motion.svg>
+                  
+                  {/* Animated Number */}
+                  <motion.div 
+                    className={`text-lg font-bold ${color} relative z-10 flex items-center justify-center`}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ 
+                      delay: 0.8 + index * 0.1, 
+                      duration: 0.4, 
+                      type: "spring", 
+                      stiffness: 200 
+                    }}
+                  >
+                    <CountUpNumber target={percent} duration={1.5} delay={1 + index * 0.1} />
+                  </motion.div>
                 </div>
-                <span className="text-xs font-medium text-center">{category.label}</span>
-              </div>
+                <span className="text-xs font-medium text-center text-muted-foreground">{category.label}</span>
+              </motion.div>
             )
           })}
-        </div>
+        </motion.div>
 
         {/* Performance Circle and Screenshot Section */}
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left: Interactive Performance Circle */}
-          <div className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 border rounded-lg bg-card">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={fadeInLeft}
+            className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 border rounded-lg bg-card hover:shadow-lg transition-shadow duration-300"
+          >
             <PerformanceCircle 
               score={performanceScore}
               metrics={metricsForCircle}
               formatValue={formatMetricValue}
             />
-          </div>
+          </motion.div>
 
           {/* Right: Screenshot */}
           {screenshot && (
-            <div className="border rounded-lg overflow-hidden bg-card">
+            <motion.div 
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-100px" }}
+              variants={fadeInRight}
+              className="border rounded-lg overflow-hidden bg-card hover:shadow-lg transition-shadow duration-300"
+            >
               <div className="p-3 sm:p-4 border-b">
                 <h4 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   Page Screenshot
@@ -329,7 +514,13 @@ function InsightsContent() {
                 </p>
               </div>
               <div className="p-4 sm:p-6 bg-muted/20 flex justify-center items-center min-h-[300px] sm:min-h-[400px]">
-                <div className="relative rounded-lg overflow-hidden shadow-xl border bg-white dark:bg-gray-900">
+                <motion.div 
+                  className="relative rounded-lg overflow-hidden shadow-xl border bg-white dark:bg-gray-900"
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  whileInView={{ scale: 1, opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.3, duration: 0.6, ease: "easeOut" }}
+                >
                   <img 
                     src={screenshot} 
                     alt="Page Screenshot" 
@@ -343,21 +534,30 @@ function InsightsContent() {
                     loading="eager"
                     decoding="sync"
                   />
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
 
         {/* Metrics Section - Full Width Below */}
-        <div className="border rounded-lg bg-card p-4 sm:p-6">
+        <motion.div 
+          ref={metricsRef}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={fadeInUp}
+          className="border rounded-lg bg-card p-4 sm:p-6 hover:shadow-lg transition-shadow duration-300"
+        >
           <div className="flex items-center justify-between mb-4 sm:mb-6">
             <h4 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               Metrics
             </h4>
-            <button 
+            <motion.button 
               onClick={() => setIsMetricsExpanded(!isMetricsExpanded)}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               <span className="hidden sm:inline">{isMetricsExpanded ? "Collapse view" : "Expand view"}</span>
               <span className="sm:hidden">{isMetricsExpanded ? "Collapse" : "Expand"}</span>
@@ -367,11 +567,14 @@ function InsightsContent() {
               >
                 ▼
               </motion.span>
-            </button>
+            </motion.button>
           </div>
 
           {/* Metrics Grid - responsive: 1 col mobile, 2 cols tablet+ */}
-          <div className="grid sm:grid-cols-2 gap-x-6 sm:gap-x-8 md:gap-x-12 gap-y-4 sm:gap-y-6">
+          <motion.div 
+            variants={staggerContainer}
+            className="grid sm:grid-cols-2 gap-x-6 sm:gap-x-8 md:gap-x-12 gap-y-4 sm:gap-y-6"
+          >
             {keyMetrics.map(({ key, label, abbr, weight }) => {
               const audit = audits[key]
               if (!audit) return null
@@ -382,14 +585,30 @@ function InsightsContent() {
               const bgColor = score >= 0.9 ? "bg-green-500" : score >= 0.5 ? "bg-amber-500" : "bg-red-500"
 
               return (
-                <div key={key} className="space-y-2">
+                <motion.div 
+                  key={key} 
+                  variants={item}
+                  className="space-y-2 group"
+                >
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${bgColor}`} />
+                    <motion.div 
+                      className={`w-2 h-2 rounded-full ${bgColor}`}
+                      initial={{ scale: 0 }}
+                      whileInView={{ scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.2, duration: 0.3, type: "spring", stiffness: 200 }}
+                    />
                     <span className="text-sm text-foreground">{label}</span>
                   </div>
-                  <div className={`text-xl sm:text-2xl font-semibold ${color}`}>
+                  <motion.div 
+                    className={`text-xl sm:text-2xl font-semibold ${color}`}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.3, duration: 0.5 }}
+                  >
                     {formatMetricValue(key, value)}
-                  </div>
+                  </motion.div>
                   
                   {/* Expanded Details */}
                   <AnimatePresence initial={false}>
@@ -430,33 +649,56 @@ function InsightsContent() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
+                </motion.div>
               )
             })}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Real-World Assessment - Core Web Vitals */}
         {data.loadingExperience?.metrics && (
-          <CoreWebVitalsAssessment 
-            metrics={data.loadingExperience.metrics}
-            overallCategory={data.loadingExperience.overall_category}
-          />
+          <motion.div
+            ref={cwvRef}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={fadeInUp}
+          >
+            <CoreWebVitalsAssessment 
+              metrics={data.loadingExperience.metrics}
+              overallCategory={data.loadingExperience.overall_category}
+            />
+          </motion.div>
         )}
 
         {/* Opportunities */}
         {opportunities.length > 0 && (
-          <div>
+          <motion.div
+            ref={opportunitiesRef}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={fadeInUp}
+          >
             <h4 className="text-xs sm:text-sm font-semibold mb-3 sm:mb-4 text-muted-foreground uppercase tracking-wide">
               Opportunities
             </h4>
-            <div className="space-y-2">
-              {opportunities.map(([key, audit]) => {
+            <motion.div 
+              variants={staggerContainer}
+              className="space-y-2"
+            >
+              {opportunities.map(([key, audit], index) => {
                 const wastedMs = audit.details?.items?.[0]?.wastedMs || 0
                 const wastedBytes = audit.details?.items?.[0]?.wastedBytes
 
                 return (
-                  <div key={key} className="p-3 sm:p-4 border rounded-lg bg-card">
+                  <motion.div 
+                    key={key} 
+                    variants={item}
+                    className="p-3 sm:p-4 border rounded-lg bg-card hover:shadow-md transition-shadow duration-300"
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ duration: 0.2 }}
+                  >
                     <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
                       <div className="flex-1">
                         <h5 className="font-medium text-sm mb-1">{audit.title}</h5>
@@ -468,46 +710,87 @@ function InsightsContent() {
                       </div>
                       <div className="flex items-center sm:flex-col sm:items-end gap-2 sm:gap-1">
                         {wastedMs > 0 && (
-                          <span className="text-xs text-orange-600 dark:text-orange-400 font-semibold whitespace-nowrap">
+                          <motion.span 
+                            className="text-xs text-orange-600 dark:text-orange-400 font-semibold whitespace-nowrap"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            whileInView={{ opacity: 1, scale: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: 0.3 + index * 0.1, duration: 0.3 }}
+                          >
                             {formatMetricValue("time", wastedMs)}
-                          </span>
+                          </motion.span>
                         )}
                         {wastedBytes && (
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          <motion.span 
+                            className="text-xs text-muted-foreground whitespace-nowrap"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            whileInView={{ opacity: 1, scale: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: 0.4 + index * 0.1, duration: 0.3 }}
+                          >
                             {(wastedBytes / 1024).toFixed(0)} KB
-                          </span>
+                          </motion.span>
                         )}
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 )
               })}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Diagnostics */}
         {diagnostics.length > 0 && (
-          <div>
+          <motion.div
+            ref={diagnosticsRef}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={fadeInUp}
+          >
             <h4 className="text-xs sm:text-sm font-semibold mb-3 sm:mb-4 text-muted-foreground uppercase tracking-wide">
               Diagnostics
             </h4>
-            <div className="space-y-2">
-              {diagnostics.map(([key, audit]) => (
-                <div key={key} className="p-3 sm:p-4 border rounded-lg bg-card flex items-center gap-3">
-                  <div className="w-5 h-5 flex-shrink-0 rounded-full flex items-center justify-center">
+            <motion.div 
+              variants={staggerContainer}
+              className="space-y-2"
+            >
+              {diagnostics.map(([key, audit], index) => (
+                <motion.div 
+                  key={key} 
+                  variants={item}
+                  className="p-3 sm:p-4 border rounded-lg bg-card flex items-center gap-3 hover:shadow-md transition-shadow duration-300"
+                  whileHover={{ scale: 1.01, x: 5 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <motion.div 
+                    className="w-5 h-5 flex-shrink-0 rounded-full flex items-center justify-center"
+                    initial={{ scale: 0, rotate: -180 }}
+                    whileInView={{ scale: 1, rotate: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.2 + index * 0.1, duration: 0.4, type: "spring", stiffness: 200 }}
+                  >
                     <CheckCircle2 className="w-3 h-3 text-green-600 dark:text-green-400" />
-                  </div>
+                  </motion.div>
                   <div className="flex-1 min-w-0">
                     <span className="text-xs sm:text-sm break-words">{audit.title}</span>
                   </div>
                   {audit.displayValue && (
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">{audit.displayValue}</span>
+                    <motion.span 
+                      className="text-xs text-muted-foreground whitespace-nowrap"
+                      initial={{ opacity: 0, x: 20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.3 + index * 0.1, duration: 0.3 }}
+                    >
+                      {audit.displayValue}
+                    </motion.span>
                   )}
-                </div>
+                </motion.div>
               ))}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
       </motion.div>
     )
@@ -518,8 +801,10 @@ function InsightsContent() {
       <div className="container mx-auto px-4 sm:px-6 max-w-7xl">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-50px" }}
+          variants={fadeInUp}
           className="mb-8 space-y-4"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -581,31 +866,51 @@ function InsightsContent() {
         {(loading || isRefreshing) && (
           <motion.div 
             className="space-y-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
           >
             {/* Top Category Scores Skeleton */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <motion.div 
+              className="grid grid-cols-2 md:grid-cols-4 gap-4"
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+            >
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex flex-col items-center gap-2 p-4 border rounded-lg bg-card">
+                <motion.div 
+                  key={i} 
+                  variants={item}
+                  className="flex flex-col items-center gap-2 p-4 border rounded-lg bg-card"
+                >
                   <Skeleton className="w-16 h-16 rounded-full" />
                   <Skeleton className="h-3 w-20" />
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
 
             {/* Performance Circle and Screenshot Skeleton */}
             <div className="grid lg:grid-cols-2 gap-8">
               {/* Performance Circle Skeleton */}
-              <div className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 border rounded-lg bg-card">
+              <motion.div 
+                className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 border rounded-lg bg-card"
+                variants={fadeInLeft}
+                initial="hidden"
+                animate="visible"
+              >
                 <Skeleton className="w-[250px] h-[250px] sm:w-[280px] sm:h-[280px] md:w-[300px] md:h-[300px] rounded-full" />
                 <Skeleton className="h-6 sm:h-8 w-24 sm:w-32 mt-4 sm:mt-6" />
                 <Skeleton className="h-3 sm:h-4 w-40 sm:w-48 mt-2" />
-              </div>
+              </motion.div>
 
               {/* Screenshot Skeleton */}
-              <div className="border rounded-lg overflow-hidden bg-card">
+              <motion.div 
+                className="border rounded-lg overflow-hidden bg-card"
+                variants={fadeInRight}
+                initial="hidden"
+                animate="visible"
+              >
                 <div className="p-3 sm:p-4 border-b space-y-2">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-3 w-48" />
@@ -613,30 +918,49 @@ function InsightsContent() {
                 <div className="p-4 sm:p-6 bg-muted/20 flex justify-center items-center min-h-[300px] sm:min-h-[400px]">
                   <Skeleton className="w-full max-w-[250px] sm:max-w-[300px] h-[300px] sm:h-[400px] rounded-lg" />
                 </div>
-              </div>
+              </motion.div>
             </div>
 
             {/* Metrics Skeleton */}
-            <div className="border rounded-lg bg-card p-6">
+            <motion.div 
+              className="border rounded-lg bg-card p-6"
+              variants={fadeInUp}
+              initial="hidden"
+              animate="visible"
+            >
               <div className="flex items-center justify-between mb-6">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-4 w-24" />
               </div>
-              <div className="grid md:grid-cols-2 gap-x-12 gap-y-6">
+              <motion.div 
+                className="grid md:grid-cols-2 gap-x-12 gap-y-6"
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+              >
                 {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="space-y-2">
+                  <motion.div 
+                    key={i} 
+                    variants={item}
+                    className="space-y-2"
+                  >
                     <div className="flex items-center gap-2">
                       <Skeleton className="w-2 h-2 rounded-full" />
                       <Skeleton className="h-4 w-40" />
                     </div>
                     <Skeleton className="h-8 w-24" />
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
             {/* Real-World Assessment Skeleton */}
-            <div className="border rounded-lg bg-card overflow-hidden">
+            <motion.div 
+              className="border rounded-lg bg-card overflow-hidden"
+              variants={fadeInUp}
+              initial="hidden"
+              animate="visible"
+            >
               {/* Header */}
               <div className="p-4 sm:p-5 border-b flex items-center justify-between">
                 <div className="flex items-center gap-2 flex-1">
@@ -700,14 +1024,27 @@ function InsightsContent() {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Opportunities Skeleton */}
-            <div>
+            <motion.div
+              variants={fadeInUp}
+              initial="hidden"
+              animate="visible"
+            >
               <Skeleton className="h-4 w-32 mb-4" />
-              <div className="space-y-2">
+              <motion.div 
+                className="space-y-2"
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+              >
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="p-4 border rounded-lg">
+                  <motion.div 
+                    key={i} 
+                    variants={item}
+                    className="p-4 border rounded-lg"
+                  >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 space-y-2">
                         <Skeleton className="h-4 w-3/4" />
@@ -715,32 +1052,46 @@ function InsightsContent() {
                       </div>
                       <Skeleton className="h-5 w-20" />
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
             {/* Diagnostics Skeleton */}
-            <div>
+            <motion.div
+              variants={fadeInUp}
+              initial="hidden"
+              animate="visible"
+            >
               <Skeleton className="h-4 w-28 mb-4" />
-              <div className="space-y-2">
+              <motion.div 
+                className="space-y-2"
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+              >
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="p-3 border rounded-lg flex items-center gap-3">
+                  <motion.div 
+                    key={i} 
+                    variants={item}
+                    className="p-3 border rounded-lg flex items-center gap-3"
+                  >
                     <Skeleton className="w-5 h-5 rounded-full" />
                     <Skeleton className="h-4 flex-1" />
                     <Skeleton className="h-3 w-16" />
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </motion.div>
         )}
 
         {/* Error State */}
         {error && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
           >
             <Card className="border-destructive">
               <CardHeader>
@@ -758,23 +1109,34 @@ function InsightsContent() {
 
         {/* Results */}
         {!loading && !isRefreshing && !error && (mobileData || desktopData) && (
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 bg-accent/50 p-1">
-              <TabsTrigger 
-                value="desktop" 
-                className="gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-colors cursor-pointer"
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2, duration: 0.4 }}
               >
-                <Monitor size={16} />
-                <span className="hidden sm:inline">Desktop</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="mobile" 
-                className="gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-colors cursor-pointer"
-              >
-                <Smartphone size={16} />
-                <span className="hidden sm:inline">Mobile</span>
-              </TabsTrigger>
-            </TabsList>
+                <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 bg-accent/50 p-1">
+                  <TabsTrigger 
+                    value="desktop" 
+                    className="gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Monitor size={16} />
+                    <span className="hidden sm:inline">Desktop</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="mobile" 
+                    className="gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Smartphone size={16} />
+                    <span className="hidden sm:inline">Mobile</span>
+                  </TabsTrigger>
+                </TabsList>
+              </motion.div>
 
             <div className="mt-6">
               <TabsContent value="desktop" className="mt-0">
@@ -809,6 +1171,7 @@ function InsightsContent() {
               </TabsContent>
             </div>
           </Tabs>
+          </motion.div>
         )}
       </div>
     </div>
