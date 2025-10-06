@@ -165,6 +165,14 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
+              // Disable browser scroll restoration
+                if ('scrollRestoration' in history) {
+                  history.scrollRestoration = 'manual';
+                }
+                
+                // Reset scroll position to top on page load
+                window.scrollTo(0, 0);
+                
                 const theme = localStorage.getItem('speed-insight-theme');
                 const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
                 const activeTheme = theme === 'system' || !theme ? systemTheme : theme;
