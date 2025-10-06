@@ -971,33 +971,26 @@ function InsightsContent() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            <Card className="border-amber-500/50 bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-950/20 dark:to-orange-950/20">
+            <Card className="border-destructive/50">
               <CardHeader>
-                <CardTitle className="text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                  <span className="text-2xl">⚠️</span>
-                  <span>Oops!</span>
-                </CardTitle>
+                <CardTitle className="text-destructive">Unable to Complete Analysis</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-foreground/90 leading-relaxed">{error}</p>
+                <p className="text-muted-foreground">{error}</p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button 
                     onClick={() => {
                       setError(null)
                       fetchData()
                     }} 
-                    className="gap-2"
                     variant="default"
                   >
-                    <span>🔄</span>
                     Try Again
                   </Button>
                   <Button 
                     onClick={() => router.push("/")} 
                     variant="outline"
-                    className="gap-2"
                   >
-                    <span>🏠</span>
                     Try Another URL
                   </Button>
                 </div>
