@@ -98,7 +98,10 @@ export function Navbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-4">
-          <AnimatedThemeToggler className="p-2 hover:bg-accent rounded-full transition-colors cursor-pointer" />
+          <AnimatedThemeToggler 
+            className="p-2 hover:bg-accent rounded-full transition-colors cursor-pointer"
+            aria-label="Toggle theme"
+          />
           
           {/* Mobile Menu Button */}
           <Button
@@ -106,6 +109,8 @@ export function Navbar() {
             size="icon"
             className="md:hidden cursor-pointer"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label={isMobileMenuOpen ? "Close mobile menu" : "Open mobile menu"}
+            aria-expanded={isMobileMenuOpen}
           >
             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </Button>

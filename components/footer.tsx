@@ -27,7 +27,7 @@ export function Footer() {
 
           {/* Quick Links */}
           <div className="space-y-4 flex flex-col items-center md:items-start">
-            <h4 className="font-semibold text-sm">Quick Links</h4>
+            <h2 className="font-semibold text-sm">Quick Links</h2>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link href="/" className="hover:text-foreground transition-colors cursor-pointer">
@@ -44,7 +44,7 @@ export function Footer() {
 
           {/* Resources */}
           <div className="space-y-4 flex flex-col items-center md:items-start">
-            <h4 className="font-semibold text-sm">Resources</h4>
+            <h2 className="font-semibold text-sm">Resources</h2>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <a
@@ -71,7 +71,7 @@ export function Footer() {
 
           {/* Legal */}
           <div className="space-y-4 flex flex-col items-center md:items-start">
-            <h4 className="font-semibold text-sm">Legal</h4>
+            <h2 className="font-semibold text-sm">Legal</h2>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link href="/privacy-policy" className="hover:text-foreground transition-colors">

@@ -8,9 +8,10 @@ import { cn } from "@/lib/utils"
 
 type Props = {
   className?: string
+  "aria-label"?: string
 }
 
-export const AnimatedThemeToggler = ({ className }: Props) => {
+export const AnimatedThemeToggler = ({ className, "aria-label": ariaLabel }: Props) => {
   const [isDark, setIsDark] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
@@ -67,7 +68,12 @@ export const AnimatedThemeToggler = ({ className }: Props) => {
   }, [isDark])
 
   return (
-    <button ref={buttonRef} onClick={toggleTheme} className={cn(className)}>
+    <button 
+      ref={buttonRef} 
+      onClick={toggleTheme} 
+      className={cn(className)}
+      aria-label={ariaLabel}
+    >
       {isDark ? <Sun /> : <Moon />}
     </button>
   )
