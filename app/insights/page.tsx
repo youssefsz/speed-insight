@@ -127,7 +127,7 @@ function InsightsContent() {
   const [desktopLoading, setDesktopLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("desktop")
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  // const [isRefreshing, setIsRefreshing] = useState(false)
   const [isMetricsExpanded, setIsMetricsExpanded] = useState(false)
 
   // Refs for scroll animations
@@ -205,22 +205,22 @@ function InsightsContent() {
     }
   }
 
-  const fetchDesktopData = async (forceRefresh = false) => {
+  const fetchDesktopData = async (/* forceRefresh = false */) => {
     if (!url) return
     
-    if (forceRefresh) {
-      setIsRefreshing(true)
-    }
+    // if (forceRefresh) {
+    //   setIsRefreshing(true)
+    // }
     setDesktopLoading(true)
     setError(null)
 
     try {
-      const refreshParam = forceRefresh ? '&refresh=true' : ''
+      // const refreshParam = forceRefresh ? '&refresh=true' : ''
       const testUrl = url // Assign to const to satisfy TypeScript
       
       // Fetch desktop data first
       const desktopResponse = await fetch(
-        `/api/pagespeed?url=${encodeURIComponent(testUrl)}&strategy=desktop${refreshParam}`
+        `/api/pagespeed?url=${encodeURIComponent(testUrl)}&strategy=desktop`/* ${refreshParam} */
       )
 
       if (!desktopResponse.ok) {
@@ -241,22 +241,22 @@ function InsightsContent() {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
       setDesktopLoading(false)
-      setIsRefreshing(false)
+      // setIsRefreshing(false)
     }
   }
 
-  const fetchMobileData = async (forceRefresh = false) => {
+  const fetchMobileData = async (/* forceRefresh = false */) => {
     if (!url) return
     
     setMobileLoading(true)
 
     try {
-      const refreshParam = forceRefresh ? '&refresh=true' : ''
+      // const refreshParam = forceRefresh ? '&refresh=true' : ''
       const testUrl = url // Assign to const to satisfy TypeScript
       
       // Fetch mobile data separately
       const mobileResponse = await fetch(
-        `/api/pagespeed?url=${encodeURIComponent(testUrl)}&strategy=mobile${refreshParam}`
+        `/api/pagespeed?url=${encodeURIComponent(testUrl)}&strategy=mobile`/* ${refreshParam} */
       )
 
       if (!mobileResponse.ok) {
@@ -284,18 +284,18 @@ function InsightsContent() {
     }
   }
 
-  const fetchData = async (forceRefresh = false) => {
+  const fetchData = async (/* forceRefresh = false */) => {
     // Reset data if force refreshing
-    if (forceRefresh) {
-      setMobileData(null)
-      setDesktopData(null)
-    }
+    // if (forceRefresh) {
+    //   setMobileData(null)
+    //   setDesktopData(null)
+    // }
 
     // Fetch desktop first
-    await fetchDesktopData(forceRefresh)
+    await fetchDesktopData(/* forceRefresh */)
     
     // Then fetch mobile in the background
-    fetchMobileData(forceRefresh)
+    fetchMobileData(/* forceRefresh */)
   }
 
   useEffect(() => {
@@ -304,7 +304,7 @@ function InsightsContent() {
       return
     }
 
-    fetchData(false)
+    fetchData(/* false */)
   }, [url, router])
 
   if (!url) {
@@ -880,7 +880,8 @@ function InsightsContent() {
                   title="Performance Report"
                   className="flex-shrink-0"
                 />
-                <Button 
+                {/* Force Refresh Button - Commented Out */}
+                {/* <Button 
                   variant="outline" 
                   size="sm"
                   onClick={() => fetchData(true)}
@@ -908,7 +909,7 @@ function InsightsContent() {
                   </motion.svg>
                   <span className="hidden sm:inline">{isRefreshing ? "Refreshing..." : "Force Refresh"}</span>
                   <span className="sm:hidden">{isRefreshing ? "Refreshing..." : "Refresh"}</span>
-                </Button>
+                </Button> */}
               </div>
             )}
           </div>
