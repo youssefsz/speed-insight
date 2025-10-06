@@ -13,43 +13,35 @@ interface LoadingProgressProps {
  */
 export function LoadingProgress({ type }: LoadingProgressProps) {
   const [currentStep, setCurrentStep] = useState(0)
-  const [progress, setProgress] = useState(0)
 
   const steps = [
     { 
       message: "Initializing analysis", 
-      duration: 1000,
-      progress: 5
+      duration: 1000
     },
     { 
       message: "Loading page resources", 
-      duration: 2000,
-      progress: 15
+      duration: 2000
     },
     { 
       message: "Rendering page content", 
-      duration: 2500,
-      progress: 30
+      duration: 2500
     },
     { 
       message: "Measuring performance metrics", 
-      duration: 3000,
-      progress: 50
+      duration: 3000
     },
     { 
       message: "Analyzing Core Web Vitals", 
-      duration: 2500,
-      progress: 70
+      duration: 2500
     },
     { 
       message: "Calculating opportunities", 
-      duration: 2000,
-      progress: 85
+      duration: 2000
     },
     { 
       message: "Finalizing report", 
-      duration: 1500,
-      progress: 95
+      duration: 1500
     },
   ]
 
@@ -58,34 +50,9 @@ export function LoadingProgress({ type }: LoadingProgressProps) {
 
     const timer = setTimeout(() => {
       setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1))
-      setProgress(steps[currentStep].progress)
     }, steps[currentStep].duration)
 
     return () => clearTimeout(timer)
-  }, [currentStep])
-
-  // Smooth progress bar animation
-  useEffect(() => {
-    if (currentStep < steps.length) {
-      const targetProgress = steps[currentStep].progress
-      const increment = (targetProgress - progress) / 20
-
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          const next = prev + increment
-          if (
-            (increment > 0 && next >= targetProgress) ||
-            (increment < 0 && next <= targetProgress)
-          ) {
-            clearInterval(interval)
-            return targetProgress
-          }
-          return next
-        })
-      }, 50)
-
-      return () => clearInterval(interval)
-    }
   }, [currentStep])
 
   return (
@@ -111,25 +78,6 @@ export function LoadingProgress({ type }: LoadingProgressProps) {
           </motion.h3>
         </div>
 
-        {/* Progress Bar */}
-        <div className="w-full space-y-3">
-          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full"
-              initial={{ width: "0%" }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            />
-          </div>
-          <motion.p
-            className="text-sm text-muted-foreground"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            {Math.round(progress)}% complete
-          </motion.p>
-        </div>
 
         {/* Step-by-step messages */}
         <div className="min-h-[60px] flex items-center justify-center">
