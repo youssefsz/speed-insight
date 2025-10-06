@@ -23,6 +23,10 @@ const RATE_LIMIT_WINDOW = 60 * 1000 // 1 minute in milliseconds
 const RATE_LIMIT_MAX_REQUESTS = 10 // 10 requests per minute per IP
 const MAX_URL_LENGTH = 2048 // Maximum URL length
 
+// Retry configuration (no timeouts)
+const MAX_RETRIES = 2 // Number of retry attempts
+const RETRY_DELAY = 2000 // Initial delay between retries (2 seconds)
+
 // Types for PageSpeed API response
 interface PageSpeedResponse {
   lighthouseResult?: {
@@ -142,6 +146,107 @@ function getClientIP(request: NextRequest): string {
   // Fallback to a default identifier for edge runtime
   // In edge runtime, request.ip is not available
   return 'edge-runtime-ip'
+}
+
+/**
+ * Sleeps for the specified number of milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Makes a request to Google PageSpeed API with retry logic (no timeouts)
+ */
+async function fetchPageSpeedWithRetry(url: string, strategy: string, apiKey?: string): Promise<Response> {
+  let lastError: Error | null = null
+  
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "Accept": "application/json",
+        },
+        cache: 'no-store' // Always fresh for retries
+      })
+      
+      // If successful or client error (4xx), return immediately
+      if (response.ok || response.status >= 400 && response.status < 500) {
+        return response
+      }
+      
+      // For server errors (5xx), throw to trigger retry
+      throw new Error(`Server error: ${response.status}`)
+      
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error')
+      
+      // Don't retry on client errors or max retries reached
+      if (attempt === MAX_RETRIES) {
+        break
+      }
+      
+      // Wait before retrying with exponential backoff
+      const delay = RETRY_DELAY * Math.pow(2, attempt)
+      console.log(`PageSpeed API attempt ${attempt + 1} failed, retrying in ${delay}ms...`)
+      await sleep(delay)
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded')
+}
+
+/**
+ * Handles the PageSpeed API response and error cases
+ */
+async function handlePageSpeedResponse(
+  response: Response, 
+  rateLimit: { remaining: number; resetTime: number },
+  request: NextRequest,
+  forceRefresh: boolean
+): Promise<NextResponse> {
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error("PageSpeed API Error:", errorText)
+    
+    // Handle specific error cases
+    if (response.status === 429) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded. Please try again later." },
+        { status: 429 }
+      )
+    }
+    
+    if (response.status === 400) {
+      return NextResponse.json(
+        { error: "Invalid URL or PageSpeed API error" },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json(
+      { error: "Failed to fetch PageSpeed data" },
+      { status: response.status }
+    )
+  }
+
+  const data: PageSpeedResponse = await response.json()
+
+  // Return the response with appropriate headers
+  return NextResponse.json(data, {
+    headers: {
+      // If force refresh, don't cache. Otherwise cache for 5 minutes
+      "Cache-Control": forceRefresh 
+        ? "no-cache, no-store, must-revalidate" 
+        : "public, s-maxage=300, stale-while-revalidate=600",
+      // Rate limiting headers
+      'X-RateLimit-Limit': RATE_LIMIT_MAX_REQUESTS.toString(),
+      'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+      'X-RateLimit-Reset': Math.ceil(rateLimit.resetTime / 1000).toString(),
+      // CORS headers
+      ...getCORSHeaders(request.headers.get('origin'))
+    },
+  })
 }
 
 /**
@@ -265,57 +370,30 @@ export async function GET(request: NextRequest) {
     // Request the most important metrics
     pagespeedUrl.searchParams.set("category", "PERFORMANCE")
 
-    // Make request to Google PageSpeed Insights API
-    const response = await fetch(pagespeedUrl.toString(), {
-      headers: {
-        "Accept": "application/json",
-      },
-      // Cache for 5 minutes to avoid excessive API calls, unless force refresh
-      ...(forceRefresh ? { cache: 'no-store' } : { next: { revalidate: 300 } })
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("PageSpeed API Error:", errorText)
+    try {
+      // Make request to Google PageSpeed Insights API with retry logic
+      const response = await fetchPageSpeedWithRetry(pagespeedUrl.toString(), strategy, apiKey)
+      return await handlePageSpeedResponse(response, rateLimit, request, forceRefresh)
+    } catch (error) {
+      console.error("PageSpeed API error:", error)
       
-      // Handle specific error cases
-      if (response.status === 429) {
-        return NextResponse.json(
-          { error: "Rate limit exceeded. Please try again later." },
-          { status: 429 }
-        )
-      }
-      
-      if (response.status === 400) {
-        return NextResponse.json(
-          { error: "Invalid URL or PageSpeed API error" },
-          { status: 400 }
-        )
-      }
-
+      // Handle errors with helpful suggestions (no timeout handling)
       return NextResponse.json(
-        { error: "Failed to fetch PageSpeed data" },
-        { status: response.status }
+        { 
+          error: "Unable to analyze the website right now. This might be temporary.",
+          suggestion: "Please check that the website is accessible and try again. If the problem persists, the website might be blocking automated requests."
+        },
+        { 
+          status: 502,
+          headers: {
+            'X-RateLimit-Limit': RATE_LIMIT_MAX_REQUESTS.toString(),
+            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+            'X-RateLimit-Reset': Math.ceil(rateLimit.resetTime / 1000).toString(),
+            ...getCORSHeaders(request.headers.get('origin'))
+          }
+        }
       )
     }
-
-    const data: PageSpeedResponse = await response.json()
-
-    // Return the response with appropriate headers
-    return NextResponse.json(data, {
-      headers: {
-        // If force refresh, don't cache. Otherwise cache for 5 minutes
-        "Cache-Control": forceRefresh 
-          ? "no-cache, no-store, must-revalidate" 
-          : "public, s-maxage=300, stale-while-revalidate=600",
-        // Rate limiting headers
-        'X-RateLimit-Limit': RATE_LIMIT_MAX_REQUESTS.toString(),
-        'X-RateLimit-Remaining': rateLimit.remaining.toString(),
-        'X-RateLimit-Reset': Math.ceil(rateLimit.resetTime / 1000).toString(),
-        // CORS headers
-        ...getCORSHeaders(request.headers.get('origin'))
-      },
-    })
 
   } catch (error) {
     console.error("PageSpeed API Route Error:", error)

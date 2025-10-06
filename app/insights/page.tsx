@@ -125,8 +125,8 @@ function InsightsContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("desktop")
-  const [isMetricsExpanded, setIsMetricsExpanded] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isMetricsExpanded, setIsMetricsExpanded] = useState(false)
 
   // Refs for scroll animations
   const headerRef = useRef(null)
@@ -217,16 +217,24 @@ function InsightsContent() {
       const refreshParam = forceRefresh ? '&refresh=true' : ''
       const testUrl = url // Assign to const to satisfy TypeScript
       
-      // Fetch mobile and desktop data in parallel
+      // Fetch mobile and desktop data in parallel (no timeouts)
       const [mobileResponse, desktopResponse] = await Promise.all([
         fetch(`/api/pagespeed?url=${encodeURIComponent(testUrl)}&strategy=mobile${refreshParam}`),
         fetch(`/api/pagespeed?url=${encodeURIComponent(testUrl)}&strategy=desktop${refreshParam}`)
       ])
 
-        if (!mobileResponse.ok || !desktopResponse.ok) {
-          const errorData = await (mobileResponse.ok ? desktopResponse : mobileResponse).json()
-          throw new Error(errorData.error || "Failed to fetch performance data")
+      if (!mobileResponse.ok || !desktopResponse.ok) {
+        const errorResponse = mobileResponse.ok ? desktopResponse : mobileResponse
+        const errorData = await errorResponse.json()
+        
+        // Create user-friendly error message with suggestion
+        let errorMessage = errorData.error || "Failed to fetch performance data"
+        if (errorData.suggestion) {
+          errorMessage += ` ${errorData.suggestion}`
         }
+        
+        throw new Error(errorMessage)
+      }
 
         const mobileJson = await mobileResponse.json()
         const desktopJson = await desktopResponse.json()
