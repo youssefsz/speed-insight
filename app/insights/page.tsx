@@ -224,12 +224,21 @@ function InsightsContent() {
       )
 
       if (!desktopResponse.ok) {
-        const errorData = await desktopResponse.json()
+        let errorMessage = "We're having trouble analyzing this website. Please try again in a moment."
         
-        // Create user-friendly error message with suggestion
-        let errorMessage = errorData.error || "Failed to fetch desktop performance data"
-        if (errorData.suggestion) {
-          errorMessage += ` ${errorData.suggestion}`
+        try {
+          const errorData = await desktopResponse.json()
+          
+          // Use API error message if available, otherwise use friendly default
+          if (errorData.error || errorData.suggestion) {
+            errorMessage = errorData.error || errorMessage
+            if (errorData.suggestion) {
+              errorMessage += ` ${errorData.suggestion}`
+            }
+          }
+        } catch {
+          // If we can't parse the error response, use the friendly message
+          errorMessage = "We couldn't connect to analyze this website. Please check the URL and try again."
         }
         
         throw new Error(errorMessage)
@@ -238,7 +247,20 @@ function InsightsContent() {
       const desktopJson = await desktopResponse.json()
       setDesktopData(desktopJson)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      // Handle different types of errors with friendly messages
+      if (err instanceof Error) {
+        // Check if it's a network/timeout error
+        if (err.name === 'TypeError' || err.message.includes('fetch')) {
+          setError("Oops! The analysis is taking longer than expected. Please try again in a moment.")
+        } else if (err.message.includes('JSON')) {
+          setError("We're having trouble processing the results. Please try again.")
+        } else {
+          // Use the error message we constructed above (from API or friendly default)
+          setError(err.message)
+        }
+      } else {
+        setError("Something unexpected happened. Please try again.")
+      }
     } finally {
       setDesktopLoading(false)
       // setIsRefreshing(false)
@@ -260,12 +282,21 @@ function InsightsContent() {
       )
 
       if (!mobileResponse.ok) {
-        const errorData = await mobileResponse.json()
+        let errorMessage = "We're having trouble analyzing this website. Please try again in a moment."
         
-        // Create user-friendly error message with suggestion
-        let errorMessage = errorData.error || "Failed to fetch mobile performance data"
-        if (errorData.suggestion) {
-          errorMessage += ` ${errorData.suggestion}`
+        try {
+          const errorData = await mobileResponse.json()
+          
+          // Use API error message if available, otherwise use friendly default
+          if (errorData.error || errorData.suggestion) {
+            errorMessage = errorData.error || errorMessage
+            if (errorData.suggestion) {
+              errorMessage += ` ${errorData.suggestion}`
+            }
+          }
+        } catch {
+          // If we can't parse the error response, use the friendly message
+          errorMessage = "We couldn't connect to analyze this website. Please check the URL and try again."
         }
         
         throw new Error(errorMessage)
@@ -277,7 +308,20 @@ function InsightsContent() {
       // Only set error if desktop also failed (has error)
       // Otherwise, user can still view desktop data
       if (!desktopData) {
-        setError(err instanceof Error ? err.message : "An error occurred")
+        // Handle different types of errors with friendly messages
+        if (err instanceof Error) {
+          // Check if it's a network/timeout error
+          if (err.name === 'TypeError' || err.message.includes('fetch')) {
+            setError("Oops! The analysis is taking longer than expected. Please try again in a moment.")
+          } else if (err.message.includes('JSON')) {
+            setError("We're having trouble processing the results. Please try again.")
+          } else {
+            // Use the error message we constructed above (from API or friendly default)
+            setError(err.message)
+          }
+        } else {
+          setError("Something unexpected happened. Please try again.")
+        }
       }
     } finally {
       setMobileLoading(false)
@@ -927,15 +971,36 @@ function InsightsContent() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            <Card className="border-destructive">
+            <Card className="border-amber-500/50 bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-950/20 dark:to-orange-950/20">
               <CardHeader>
-                <CardTitle className="text-destructive">Error</CardTitle>
+                <CardTitle className="text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                  <span className="text-2xl">⚠️</span>
+                  <span>Oops!</span>
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">{error}</p>
-                <Button onClick={() => router.push("/")} className="mt-4">
-                  Try Another URL
-                </Button>
+              <CardContent className="space-y-4">
+                <p className="text-foreground/90 leading-relaxed">{error}</p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button 
+                    onClick={() => {
+                      setError(null)
+                      fetchData()
+                    }} 
+                    className="gap-2"
+                    variant="default"
+                  >
+                    <span>🔄</span>
+                    Try Again
+                  </Button>
+                  <Button 
+                    onClick={() => router.push("/")} 
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <span>🏠</span>
+                    Try Another URL
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </motion.div>
