@@ -38,7 +38,7 @@ export const AnimatedThemeToggler = ({ className }: Props) => {
         const newTheme = !isDark
         setIsDark(newTheme)
         document.documentElement.classList.toggle("dark")
-        localStorage.setItem("theme", newTheme ? "dark" : "light")
+        localStorage.setItem("speed-insight-theme", newTheme ? "dark" : "light")
       })
     }).ready
 
